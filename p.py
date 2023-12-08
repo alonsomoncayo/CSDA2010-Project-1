@@ -31,6 +31,8 @@ join_df.reset_index(inplace=True)
 
 fit,forecast,temp_assum = model.fit_model_forecast(join_df,df_mean_temp)
 
+forecast = forecast.rename(columns={'index':'Date','predicted_mean': 'Residential'})
+full_df = pd.concat([join_df[['Date','Residential']],forecast])
 
 app = Dash(__name__,external_stylesheets=[dbc.themes.ZEPHYR])
 
@@ -55,7 +57,7 @@ sidebar = html.Div(
         html.H4("Gas consumption time series analysis"),
         html.Hr(),
         html.B(
-            "1) Grapg time series", className="lead"
+            "1) Graph time series", className="lead"
         ),
         html.Br(),
         dbc.Button("Click to graph", color="primary", className="me-1",n_clicks=0,id='button'),
@@ -72,15 +74,17 @@ sidebar = html.Div(
         html.H6('Forecast: select a date'),
         dcc.DatePickerSingle(
         id='date_picker',
-        date=None,
+        date=date(2023, 9, 1),
         display_format='MMMM Y',
         clearable=True,
-        min_date_allowed=date(2023, 9, 1),
+        min_date_allowed=date(2016, 1, 1),
         max_date_allowed=date(2024, 12, 1),
         disabled=True,
         style={'font-size': '5px'}
         ),
-        html.H6('hola',id='forecast')
+        html.H6('hola',id='forecast'),
+        html.Hr(),
+        html.Div(html.Em('We used 2022 temperatures to assume 2024 temperatures'))
     ],
     style=SIDEBAR_STYLE,
 )
@@ -127,8 +131,8 @@ def graph(n,on):
                                 name='Temperature',
                                 mode='lines',
                                 yaxis='y2')
-            trace3 = go.Scatter(x=forecast['index'],
-                            y=forecast['predicted_mean'],
+            trace3 = go.Scatter(x=forecast['Date'],
+                            y=forecast['Residential'],
                             name='Gas consumption forecast',
                             mode='lines',
                             yaxis='y1')
@@ -151,8 +155,8 @@ def graph(n,on):
                             y=join_df['Residential'],
                             name='Gas consumption',
                             mode='lines')
-            trace3 = go.Scatter(x=forecast['index'],
-                            y=forecast['predicted_mean'],
+            trace3 = go.Scatter(x=forecast['Date'],
+                            y=forecast['Residential'],
                             name='Gas consumption forecast',
                             mode='lines',
                             yaxis='y1')
@@ -172,13 +176,14 @@ def forecast_val(date_value):
     
     
     if date_value is not None:
-        # date_object = date_value.fromisoformat(date_value)
-        # date_string = date_value.strftime('%B %Y')
         date_time_value = datetime.datetime.strptime(date_value,"%Y-%m-%d")
         month_year = date_time_value.strftime("%B %Y")
-        change = date_value[:-3]+'01'
-        month_year_data = datetime.datetime.strptime(date_value,"%Y-%m-%d")
-        return f'The forcasted gas consumption for {month_year} is: {forecast[forecast["index"]==month_year_data]}'
+        change = date_value[:-3]+'-01'
+        f = f'{round(full_df[full_df["Date"]==change]["Residential"].values[0],2):,}'
+        if date_time_value < datetime.datetime(2023,9,1):
+            return f'The  gas consumption for {month_year} was: {f} cubic meters'
+        else:
+            return f'The forcasted gas consumption for {month_year} is: {f} cubic meters'
         
     
 
